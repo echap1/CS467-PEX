@@ -35,9 +35,12 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    printf("connecting to server...\n");
+    printf("[log] connecting to server...\n");
     while (connect(sock, (struct sockaddr *) &server_addr, sizeof(server_addr)) != 0);
-    printf("connected to server!\n");
+    printf("[log] connected to server!\n");
+    printf("[log] type any message and press enter to send\n");
+    printf("[log] special commands are:\n");
+    printf("[log]     \"exit\": closes connection with the server\n");
 
     make_non_blocking(sock);
     make_non_blocking(STDIN_FILENO);
@@ -57,13 +60,13 @@ int main(int argc, char *argv[]) {
         // Read stdin and send if we have a message
         if (read(STDIN_FILENO, &c, 1) > 0 && update_buf(stdin_buf, c, MSG_BUF_SIZE)) {
             if (strncmp(stdin_buf, "exit", 4) == 0) {
-                printf("closing connection with server...\n");
+                printf("[log] closing connection with server...\n");
                 close(sock);
                 exit(0);
             }
 
             if (send(sock, stdin_buf, strlen(stdin_buf), 0) == -1 || send(sock, "\n", 1, 0) == -1) {
-                printf("Error sending message to server");
+                printf("[log] error sending message to server");
                 printf("\n");
             }
             stdin_buf[0] = '\0';

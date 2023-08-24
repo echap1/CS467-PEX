@@ -42,7 +42,7 @@ int main(int argc, char *argv[]) {
         exit(-1);
     }
 
-    printf("[server]: initializing...\n");
+    printf("[log] initializing...\n");
 
     int server_sock = socket_init();
 
@@ -64,9 +64,13 @@ int main(int argc, char *argv[]) {
     make_non_blocking(server_sock);
     make_non_blocking(STDIN_FILENO);
 
-    printf("[server]: server is listening at ");
+    printf("[log] server is listening at ");
     print_addr(&server_addr);
     printf("\n");
+
+    printf("[log] type any message and press enter to send to all clients\n");
+    printf("[log] special commands are:\n");
+    printf("[log]     \"exit\": shuts down the server\n");
 
     while (1) {
         // Accept a connection if we can
@@ -76,7 +80,7 @@ int main(int argc, char *argv[]) {
             if ((client_sock = accept(server_sock, (struct sockaddr *) &clients[num_clients].addr, &sock_length)) != -1) {
                 clients[num_clients].sock = client_sock;
 
-                printf("client connected: ");
+                printf("[log] client connected: ");
                 print_addr(&clients[num_clients].addr);
                 printf("\n");
 
@@ -96,7 +100,7 @@ int main(int argc, char *argv[]) {
                 clients[i].buf[0] = '\0';
             }
             if (n == 0) {
-                printf("client disconnected: ");
+                printf("[log] client disconnected: ");
                 print_addr(&clients[i].addr);
                 printf("\n");
 
@@ -111,7 +115,7 @@ int main(int argc, char *argv[]) {
         // Read stdin
         if (read(STDIN_FILENO, &c, 1) > 0 && update_buf(stdin_buf, c, MSG_BUF_SIZE)) {
             if (strncmp(stdin_buf, "exit", 4) == 0) {
-                printf("shutting down server...\n");
+                printf("[log] shutting down server...\n");
                 for (int i = 0; i < num_clients; i++) {
                     close(clients[i].sock);
                 }
