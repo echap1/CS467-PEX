@@ -20,12 +20,45 @@ typedef struct client_t {
 unsigned int num_clients = 0;
 client clients[MAX_CLIENTS];
 
+/**
+ * Print the IP and port of the given socket addr
+ */
 void print_addr(struct sockaddr_in *s);
+
+/**
+ * Load the ascii form of the ip address into ip_addr_buf
+ */
 void get_addr(struct sockaddr_in *s);
+
+/**
+ * Send the given message to all clients except the one specified in exclusion.
+ * Set exclusion to -1 to send to everyone.
+ */
 void broadcast(char *msg, int exclusion);
+
+/**
+ * Initializes a TCP socket
+ * @return the socket's fd
+ */
 int socket_init();
+
+/**
+ * Initialize a socket address object (stores ip and port) with a given port.
+ * @note the IP address is returned null and must be populated by the function caller
+ * @return the created socket address
+ */
 struct sockaddr_in sock_addr_init(long port);
+
+/**
+ * Makes the given file descriptor non-blocking. Exits program on failure.
+ */
 void make_non_blocking(int fd);
+
+/**
+ * Updates a buffer with a given new character. Returns true if the buffer
+ * is done being read, otherwise false. Used for reading characters from stdin or messages from server.
+ * Buffer is done reading when a newline is reached or the buffer is full.
+ */
 bool update_buf(char *buf, char new_char, int max_size);
 
 // Stores a client's ip address as a string (in preparation to print it)
@@ -171,26 +204,15 @@ int main(int argc, char *argv[]) {
 }
 
 void get_addr(struct sockaddr_in *s) {
-    /**
-     * Load the ascii form of the ip address into ip_addr_buf
-     */
     inet_ntop(AF_INET, &s->sin_addr.s_addr, ip_addr_buf, 17);
 }
 
 void print_addr(struct sockaddr_in *s) {
-    /**
-     * Print the IP and port of the given socket addr
-     */
     get_addr(s);
     printf("%s:%d", ip_addr_buf, ntohs(s->sin_port));
 }
 
 void broadcast(char *msg, int exclusion) {
-    /**
-     * Send the given message to all clients except the one specified in exclusion.
-     * Set exclusion to -1 to send to everyone.
-     */
-
     for (int i = 0; i < num_clients; i++) {
         if (i == exclusion) continue;
         if (send(clients[i].sock, msg, strlen(msg), 0) == -1) {
@@ -205,10 +227,6 @@ void broadcast(char *msg, int exclusion) {
 // --- COMMON FUNCTIONS (in client and server) ---
 
 int socket_init() {
-    /**
-     * Initializes a TCP socket
-     * @return the socket's fd
-     */
     int sock;
     if ((sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1) {
         fprintf(stderr, "error on socket()\n");
@@ -218,11 +236,6 @@ int socket_init() {
 }
 
 struct sockaddr_in sock_addr_init(long port) {
-    /**
-     * Initialize a socket address object (stores ip and port) with a given port.
-     * @note the IP address is returned null and must be populated by the function caller
-     * @return the created socket address
-     */
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
     addr.sin_family = AF_INET;
@@ -231,9 +244,6 @@ struct sockaddr_in sock_addr_init(long port) {
 }
 
 void make_non_blocking(int fd) {
-    /**
-     * Makes the given file descriptor non-blocking. Exits program on failure.
-     */
     if (fcntl(fd, F_SETFL, fcntl(fd, F_GETFL) | O_NONBLOCK)) {
         fprintf(stderr, "error on fcntl()\n");
         exit(-1);
@@ -241,12 +251,6 @@ void make_non_blocking(int fd) {
 }
 
 bool update_buf(char *buf, char new_char, int max_size) {
-    /**
-     * Updates a buffer with a given new character. Returns true if the buffer
-     * is done being read, otherwise false. Used for reading characters from stdin or messages from server.
-     * Buffer is done reading when a newline is reached or the buffer is full.
-     */
-
     unsigned long c_len = strlen(buf);
 
     if (new_char != '\n') {
